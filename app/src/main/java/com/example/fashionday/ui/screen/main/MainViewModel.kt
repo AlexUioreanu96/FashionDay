@@ -7,6 +7,8 @@ import com.example.fashionday.domain.model.Product
 import com.example.fashionday.domain.usecase.FetchAllProductsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -23,27 +25,31 @@ class MainViewModel @Inject constructor(
     val fetchProductsUseCase: FetchAllProductsUseCase
 ) : ViewModel() {
 
-    var uiState = MutableStateFlow(ProductUiState())
+    var _uiStateFlow = MutableStateFlow(ProductUiState())
         private set
+    val uiStateFlow: StateFlow<ProductUiState> = _uiStateFlow.asStateFlow()
+
+     val uiState
+        get() = _uiStateFlow.value
 
     init {
         fetchProducts()
     }
 
     fun deleteItemOnLongPressed(productId: Int) {
-//        uiState = uiState.value.copy(
-//            products = LinkedHashMap(uiState.products.filterKeys { it != productId })
-//        )
+        _uiStateFlow.value = _uiStateFlow.value.copy(
+            products = LinkedHashMap(uiState.products.filterKeys { it != productId })
+        )
     }
 
     fun fetchProducts() {
-        uiState.value = uiState.value.copy(isLoading = true)
+        _uiStateFlow.value = _uiStateFlow.value.copy(isLoading = true)
         viewModelScope.launch {
             fetchProductsUseCase().onSuccess { list ->
                 val newProducts =
-                    list.products.filterNot { it.productId in uiState.value.products.keys }
-                uiState.value = uiState.value.copy(
-                    products = uiState.value.products.apply {
+                    list.products.filterNot { it.productId in _uiStateFlow.value.products.keys }
+                _uiStateFlow.value = _uiStateFlow.value.copy(
+                    products = _uiStateFlow.value.products.apply {
                         newProducts.forEach {
                             put(
                                 it.productId,
@@ -55,7 +61,7 @@ class MainViewModel @Inject constructor(
                 )
             }.onFailure { exception ->
                 Log.e("MainViewModel", "Error fetching products: ", exception)
-                uiState.value = uiState.value.copy(isLoading = false)
+                _uiStateFlow.value = _uiStateFlow.value.copy(isLoading = false)
             }
         }
     }
